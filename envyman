@@ -23,22 +23,20 @@ get_root_path() {
 # Function to add environment variable configuration to a file
 add_configuration() {
     local root_path=$(get_root_path)
-    local path="$1"
-    local url_envyman="$2"
-    local username="$3"
-    local password="$4"
+    local config_file="$1"
+    shift
 
-    if [[ -z "$path" || -z "$url_envyman" || -z "$username" || -z "$password" ]]; then
-        echo "Usage: envyman add [path] [url_db] [username] [password]"
+    if [[ -z "$config_file" ]]; then
+        echo "Usage: envyman add [config_file] [VAR1=VALUE1 VAR2=VALUE2 ...]"
         return
     fi
 
     # Append .sh extension if not present
-    if [[ ! $path == *.sh ]]; then
-        path="${path}.sh"
+    if [[ ! $config_file == *.sh ]]; then
+        config_file="${config_file}.sh"
     fi
 
-    local full_path="${root_path}/${path}"
+    local full_path="${root_path}/${config_file}"
     local directory="$(dirname "${full_path}")"
 
     # Create directory if it doesn't exist
@@ -46,9 +44,14 @@ add_configuration() {
         mkdir -p "${directory}"
     fi
 
-    echo "export URL_DB=${url_envyman}" > "${full_path}"
-    echo "export USERNAME_DB=${username}" >> "${full_path}"
-    echo "export PASSWORD_DB=${password}" >> "${full_path}"
+    echo "#!/bin/bash" > "${full_path}"
+
+    # Loop through the remaining arguments
+    for arg in "$@"; do
+        # Split each argument into variable name and value
+        IFS='=' read -r var_name var_value <<< "$arg"
+        echo "export $var_name=\"$var_value\"" >> "${full_path}"
+    done
 
     echo "Configuration added to ${full_path}"
 }
@@ -57,6 +60,7 @@ add_configuration() {
 start_configuration() {
     local root_path=$(get_root_path)
     local path="$1"
+    shift
 
     if [[ -z "$path" ]]; then
         echo "Usage: envyman start [path]"
@@ -71,15 +75,18 @@ start_configuration() {
     local full_path="${root_path}/${path}"
 
     if [ -f "${full_path}" ]; then
-        local temp_env_file="/tmp/envyman_env_vars.sh"
+
+        local temp_env_file="/tmp/envyman_vars.sh"
 
         echo "#!/bin/bash" > "$temp_env_file"
         echo "source \"$full_path\"" >> "$temp_env_file"
 
         source "$full_path"
 
-        echo "Configuration loaded from ${full_path}"
         echo "$full_path" > "$LAST_LOADED_CONFIG_FILE"
+        echo "$@" >> "$LAST_LOADED_CONFIG_FILE"
+
+        echo "Configuration loaded from ${full_path}"
     else
         echo "Configuration file not found at ${full_path}"
     fi
@@ -91,7 +98,7 @@ stop_configuration() {
     if [[ -z "${URL_DB}${USERNAME_DB}${PASSWORD_DB}" ]]; then
         echo "No configuration loaded"
     else
-        local temp_env_file="/tmp/envyman_env_vars.sh"
+        local temp_env_file="/tmp/envyman_vars.sh"
         echo "# no active connection" > "$temp_env_file"
         echo "Configuration stopped"
     fi
@@ -143,8 +150,9 @@ list_configurations() {
     else
         echo "Configuration files:"
         for file in $config_files; do
-            file_name=$(basename "$file")
-            echo "${file_name%.sh}"
+            relative_path=${file#$root_path/}
+            config_name=${relative_path%.sh}
+            echo "$config_name"
         done
     fi
 }
@@ -160,26 +168,75 @@ check_configuration() {
     if [ -f "$LAST_LOADED_CONFIG_FILE" ]; then
         local loaded_file=$(cat "$LAST_LOADED_CONFIG_FILE")
         echo "Last loaded configuration: $loaded_file"
-        if [[ -n "$URL_DB" && -n "$USERNAME_DB" && -n "$PASSWORD_DB" ]]; then
-            local url_envyman_file=$(grep -E "^export URL_DB=" "$loaded_file" | cut -d= -f2-)
-            local username_file=$(grep -E "^export USERNAME_DB=" "$loaded_file" | cut -d= -f2-)
-            local password_file=$(grep -E "^export PASSWORD_DB=" "$loaded_file" | cut -d= -f2-)
 
-            if [[ "$url_envyman_file" == "$URL_DB" && "$username_file" == "$USERNAME_DB" && "$password_file" == "$PASSWORD_DB" ]]; then
-                echo "Configuration is active"
-                return 0
+        # source "$LAST_LOADED_CONFIG_FILE"
+        while read -r line; do
+            if [[ $line =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]]; then
+                variable_name="${line%%=*}"
+                if [[ "${!variable_name}" != "${line#*=}" ]]; then
+                    echo "Variable $variable_name isn't loaded!"
+                    echo "Configuration is inactive or partially overwritten, call \"envyman start\" to activate a configuration or reactivate the last one."
+                    return 1
+                fi
             fi
-        fi
+        done < "$LAST_LOADED_CONFIG_FILE"
+
+        echo "Configuration is active"
+        return 0
+
     fi
 
-    echo "Configuration is inactive"
+    echo "Configuration is inactive, call \"envyman start\" to activate a configuration."
     return 1
+}
+
+# Function to install envyman
+install_envyman() {
+    local script_path=$(realpath "$0")
+
+    # Move script files to envyman directory
+    cp "$script_path" "$HOME/.local/bin/envyman"
+
+    # Make the Envyman script executable
+    chmod +x "$HOME/.local/bin/envyman"
+
+    # Init envyman_vars.sh and add to .bashrc
+    touch "/tmp/envyman_vars.sh"
+    echo "source \"/tmp/envyman_vars.sh\"" >> "$HOME/.bashrc"
+
+    echo "Envyman installed successfully!"
+}
+
+# Function to uninstall envyman
+uninstall_envyman() {
+
+    # Confirmation prompt
+    read -p "Are you sure you want to uninstall Envyman? This action is irreversible. (y/n): " confirm
+    if [[ $confirm != "y" ]]; then
+        echo "Uninstallation aborted."
+        return
+    fi
+
+    rm "$HOME/.local/bin/envyman"
+
+    # Remove envyman from .bashrc
+    sed -i '/^source.*\/tmp\/envyman_vars\.sh$/d' "$HOME/.bashrc"
+
+    # Prompt to remove configurations
+    read -p "Remove configurations (y/n): " remove_configs
+    if [[ $remove_configs == "y" ]]; then
+        local root_path=$(get_root_path)
+        rm -rf "$root_path"
+    fi
+
+    echo "Envyman uninstalled successfully!"
 }
 
 # Main script logic
 case "$1" in
     "add")
-        add_configuration "$2" "$3" "$4" "$5"
+        shift
+        add_configuration "$@"
         ;;
     "start")
         start_configuration "$2"
@@ -199,23 +256,31 @@ case "$1" in
     "check")
         check_configuration
         ;;
+    "install")
+        install_envyman
+        ;;
+    "uninstall")
+        uninstall_envyman
+        ;;
     *)
         echo "Usage: envyman [command] [arguments]"
         echo "Available commands:"
-        echo "  add     : Add environment variable configuration"
-        echo "            Usage: envyman add [path] [url_db] [username] [password]"
-        echo "  start   : Start using the environment variable configuration"
-        echo "            Usage: envyman start [path]"
-        echo "  stop    : Stop using the environment variable configuration"
-        echo "            Usage: envyman stop"
-        echo "  root    : Set the root path for configuration files"
-        echo "            Usage: envyman root [path]"
-        echo "  ls      : List all configuration files in the root path"
-        echo "            Usage: envyman ls"
-        echo "  groot   : Echo the current root path"
-        echo "            Usage: envyman groot"
-        echo "  check   : Check configuration and print loaded file"
-        echo "            Usage: envyman check"
+        echo "  add       : Add environment variable configuration"
+        echo "              Usage: envyman add [config_file] [VAR1=VALUE1 VAR2=VALUE2 ...]"
+        echo "  start     : Start using the environment variable configuration"
+        echo "              Usage: envyman start [path]"
+        echo "  stop      : Stop using the environment variable configuration"
+        echo "              Usage: envyman stop"
+        echo "  root      : Set the root path for configuration files"
+        echo "              Usage: envyman root [path]"
+        echo "  ls        : List all configuration files in the root path"
+        echo "              Usage: envyman ls"
+        echo "  groot     : Echo the current root path"
+        echo "              Usage: envyman groot"
+        echo "  check     : Check configuration and print loaded file"
+        echo "              Usage: envyman check"
+        echo "  install   : Install envyman"
+        echo "  uninstall : Uninstall envyman"
         ;;
 esac
 
