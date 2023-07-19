@@ -1,0 +1,221 @@
+#!/bin/bash
+
+# Constants
+LAST_LOADED_CONFIG_FILE=~/.envyman_last_loaded_config
+
+# Function to retrieve the root path from ~/.envyman_root_path file
+get_root_path() {
+    local default_root_path="$HOME/.envyman"
+    local root_path
+
+    if [ -f ~/.envyman_root_path ]; then
+        root_path=$(cat ~/.envyman_root_path)
+    else
+        echo "Default root path set: $default_root_path"
+        mkdir -p "$default_root_path"
+        echo "$default_root_path" > ~/.envyman_root_path
+        root_path=$default_root_path
+    fi
+
+    echo "$root_path"
+}
+
+# Function to add environment variable configuration to a file
+add_configuration() {
+    local root_path=$(get_root_path)
+    local path="$1"
+    local url_envyman="$2"
+    local username="$3"
+    local password="$4"
+
+    if [[ -z "$path" || -z "$url_envyman" || -z "$username" || -z "$password" ]]; then
+        echo "Usage: envyman add [path] [url_db] [username] [password]"
+        return
+    fi
+
+    # Append .sh extension if not present
+    if [[ ! $path == *.sh ]]; then
+        path="${path}.sh"
+    fi
+
+    local full_path="${root_path}/${path}"
+    local directory="$(dirname "${full_path}")"
+
+    # Create directory if it doesn't exist
+    if [[ ! -d "${directory}" ]]; then
+        mkdir -p "${directory}"
+    fi
+
+    echo "export URL_DB=${url_envyman}" > "${full_path}"
+    echo "export USERNAME_DB=${username}" >> "${full_path}"
+    echo "export PASSWORD_DB=${password}" >> "${full_path}"
+
+    echo "Configuration added to ${full_path}"
+}
+
+# Function to start using the environment variable configuration
+start_configuration() {
+    local root_path=$(get_root_path)
+    local path="$1"
+
+    if [[ -z "$path" ]]; then
+        echo "Usage: envyman start [path]"
+        return
+    fi
+
+    # Append .sh extension if not present
+    if [[ ! $path == *.sh ]]; then
+        path="${path}.sh"
+    fi
+
+    local full_path="${root_path}/${path}"
+
+    if [ -f "${full_path}" ]; then
+        local temp_env_file="/tmp/envyman_env_vars.sh"
+
+        echo "#!/bin/bash" > "$temp_env_file"
+        echo "source \"$full_path\"" >> "$temp_env_file"
+
+        source "$full_path"
+
+        echo "Configuration loaded from ${full_path}"
+        echo "$full_path" > "$LAST_LOADED_CONFIG_FILE"
+    else
+        echo "Configuration file not found at ${full_path}"
+    fi
+}
+
+# Function to stop using the environment variable configuration
+stop_configuration() {
+
+    if [[ -z "${URL_DB}${USERNAME_DB}${PASSWORD_DB}" ]]; then
+        echo "No configuration loaded"
+    else
+        local temp_env_file="/tmp/envyman_env_vars.sh"
+        echo "# no active connection" > "$temp_env_file"
+        echo "Configuration stopped"
+    fi
+
+    rm -f "$LAST_LOADED_CONFIG_FILE"
+}
+
+# Function to move existing files to the new root path
+move_files() {
+    local root_path="$1"
+    local old_root_path="$2"
+
+    # Move files to new root path
+    find "${old_root_path}" -type f -name '*.sh' -exec bash -c 'mv "$0" "${1}${0#"$2"}"' {} "${root_path}/" "${old_root_path}/" \;
+}
+
+# Function to set the root path
+set_root_path() {
+    local new_root_path="$1"
+    local old_root_path
+
+    if [ -f ~/.envyman_root_path ]; then
+        old_root_path=$(cat ~/.envyman_root_path)
+    fi
+
+    if [ -d "$new_root_path" ]; then
+        if [[ -n "$old_root_path" && "$new_root_path" != "$old_root_path" ]]; then
+            echo "Root path changed from $old_root_path to $new_root_path"
+            move_files "$new_root_path" "$old_root_path"
+        else
+            echo "Root path is already set to $new_root_path"
+        fi
+    else
+        echo "Directory does not exist. Creating $new_root_path"
+        mkdir -p "$new_root_path"
+    fi
+
+    echo "$new_root_path" > ~/.envyman_root_path
+    echo "Root path set to $new_root_path"
+}
+
+# Function to list configuration files
+list_configurations() {
+    local root_path=$(get_root_path)
+    local config_files=$(find "$root_path" -type f -name "*.sh")
+
+    if [ -z "$config_files" ]; then
+        echo "No configuration files found in $root_path"
+    else
+        echo "Configuration files:"
+        for file in $config_files; do
+            file_name=$(basename "$file")
+            echo "${file_name%.sh}"
+        done
+    fi
+}
+
+# Function to echo the current root path
+get_current_root() {
+    local root_path=$(get_root_path)
+    echo "Current root path: $root_path"
+}
+
+# Function to check configuration and print loaded file
+check_configuration() {
+    if [ -f "$LAST_LOADED_CONFIG_FILE" ]; then
+        local loaded_file=$(cat "$LAST_LOADED_CONFIG_FILE")
+        echo "Last loaded configuration: $loaded_file"
+        if [[ -n "$URL_DB" && -n "$USERNAME_DB" && -n "$PASSWORD_DB" ]]; then
+            local url_envyman_file=$(grep -E "^export URL_DB=" "$loaded_file" | cut -d= -f2-)
+            local username_file=$(grep -E "^export USERNAME_DB=" "$loaded_file" | cut -d= -f2-)
+            local password_file=$(grep -E "^export PASSWORD_DB=" "$loaded_file" | cut -d= -f2-)
+
+            if [[ "$url_envyman_file" == "$URL_DB" && "$username_file" == "$USERNAME_DB" && "$password_file" == "$PASSWORD_DB" ]]; then
+                echo "Configuration is active"
+                return 0
+            fi
+        fi
+    fi
+
+    echo "Configuration is inactive"
+    return 1
+}
+
+# Main script logic
+case "$1" in
+    "add")
+        add_configuration "$2" "$3" "$4" "$5"
+        ;;
+    "start")
+        start_configuration "$2"
+        ;;
+    "stop")
+        stop_configuration
+        ;;
+    "root")
+        set_root_path "$2"
+        ;;
+    "ls")
+        list_configurations
+        ;;
+    "groot")
+        get_current_root
+        ;;
+    "check")
+        check_configuration
+        ;;
+    *)
+        echo "Usage: envyman [command] [arguments]"
+        echo "Available commands:"
+        echo "  add     : Add environment variable configuration"
+        echo "            Usage: envyman add [path] [url_db] [username] [password]"
+        echo "  start   : Start using the environment variable configuration"
+        echo "            Usage: envyman start [path]"
+        echo "  stop    : Stop using the environment variable configuration"
+        echo "            Usage: envyman stop"
+        echo "  root    : Set the root path for configuration files"
+        echo "            Usage: envyman root [path]"
+        echo "  ls      : List all configuration files in the root path"
+        echo "            Usage: envyman ls"
+        echo "  groot   : Echo the current root path"
+        echo "            Usage: envyman groot"
+        echo "  check   : Check configuration and print loaded file"
+        echo "            Usage: envyman check"
+        ;;
+esac
+
