@@ -5,7 +5,7 @@ LAST_LOADED_CONFIG_FILE=~/.envyman_last_loaded_config
 
 # Function to retrieve the root path from ~/.envyman_root_path file
 get_root_path() {
-    local default_root_path="$HOME/.envyman"
+    local default_root_path="$HOME/envyman"
     local root_path
 
     if [ -f ~/.envyman_root_path ]; then
