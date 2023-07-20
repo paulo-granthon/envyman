@@ -220,7 +220,7 @@ uninstall_envyman() {
     rm "$HOME/.local/bin/envyman"
 
     # Remove envyman from .bashrc
-    sed -i '/^source.*\/tmp\/envyman_vars\.sh$/d' "$HOME/.bashrc"
+    sed -i '/^source.*"\/tmp\/envyman_vars\.sh"$/d' "$HOME/.bashrc"
 
     # Prompt to remove configurations
     read -p "Remove configurations (y/n): " remove_configs
