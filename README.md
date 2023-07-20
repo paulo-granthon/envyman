@@ -19,7 +19,7 @@ Envyman is a Bash script that helps you manage environment variable configuratio
 
 Let's say you want to access the values of `URL`, `USERNAME` and `PASSWORD` from within a project that loads environment variables:
 
-Example Spring project `application.properties`:
+#### Example Spring project `application.properties`:
 ```properties
 spring.datasource.url=${URL}
 spring.datasource.username=${USERNAME}
@@ -103,47 +103,61 @@ Envyman supports the following commands:
     ```console
     envyman add [config_file] [VAR1=VALUE1 VAR2=VALUE2 ...]
     ```
+    - The file will be created inside the current envyman root. You can also specify subdirectories.
+    - Example: `envyman add sub/dir/config_file ...`
+
 
 - `start`: Start using the environment variable configuration
     ```console
     envyman start [config_file]
     ```
-    - Note: If you created your file in a subdirectory inside the root, you'll need to specify it with the start command
+    - Note: If you created your file in a subdirectory inside the root, you'll need to specify it with the `start` command.
+    - Example: `envyman start sub/dir/config_file`
+
+
+- `ls`: List all configuration files in the root path
+    ```console
+    envyman ls
+    ```
+    - Each line represents what you would specify as an argument for `envyman start` if you want to load that file, in other words, the path starting at the current envyman root and without the `.sh` file extension at the end.
+
+
+- `check`: Check the last loaded configuration and echo loaded file
+    ```console
+    envyman check
+    ```
+    - This will echo the name of the last file that you loaded and also an "active" or "inactive" status depending on if the variables of the file have their values correctly loaded into the current terminal session. 
+
 
 - `stop`: Stop using the environment variable configuration
     ```console
     envyman stop
     ```
 
+
 - `root`: Set the root path for configuration files
     ```console
     envyman root [path]
     ```
 
-- `ls`: List all configuration files in the root path
-    ```console
-    envyman ls
-    ```
 
 - `groot`: Echo the current root path
     ```console
     envyman groot
     ```
 
-- `check`: Check configuration and print loaded file
-    ```console
-    envyman check
-    ```
 
 - `install`: Install Envyman
     ```console
     envyman install
     ```
 
+
 - `uninstall`: Uninstall Envyman
     ```console
     envyman uninstall
     ```
+
 
 <h2 align="center">Story Time</h2>
 
