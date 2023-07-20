@@ -1,14 +1,10 @@
 # Envyman
 
-Envyman is a Bash script that helps you manage environment variable configurations easily. It allows you to add, start, stop, and list configuration files, configure where you want to store your configurations and check the current active configuration.
+Envyman is a Bash script that helps you manage environment variable configurations easily. It allows you to add, start, stop, and list configuration files, configure where you want to store your configurations and track active configurations.
 
-## Story Time
+<h2 align="center">Features</h2>
 
-Envyman was born out of a personal need to address a specific challenge I encountered while collaborating on a team project using Spring Boot JPA. As the sole user of NeoVim (and Arch Linux by the way), I lacked a convenient IDE solution for managing local environment variables like Eclipse offered. I didn't want to abruptly switch to Eclipse or resort to hardcoding the database URL, username, and password in either the project's application.properties file (to avoid dealing with adding it to .gitignore since the file follows an specific template, or the risk of inadvertently exposing sensitive data on GitHub) or my machine's .bashrc file, which would require cleanup afterward. In response, I conceived the idea of creating an *environment variable manager*, **Envyman**, to effortlessly tackle this issue. It provides a straightforward command to create sets of environment variables that can be easily loaded, allowing me to work on different projects with distinct variable configurations. When no longer needed, these configurations can be easily removed. Envyman offers a seamless solution to my problem, empowering me to streamline my workflow efficiently and securely.
-
-## Features
-
-- Create configuration files with `name=value` environment variables that are loaded inside any terminal session.
+- Create configuration files containing a set `name=value` environment variables that are loaded inside any terminal session.
 - Start using the environment variables by specifying what configuration file you you want to load.
 - Stop using the environment variable configuration at any time.
 - Configure the root path where your configuration files are stored, moving any files inside the previous directory to the new one.
@@ -17,105 +13,141 @@ Envyman was born out of a personal need to address a specific challenge I encoun
 - Reinstall Envyman. If you made any changes to the script, you can imediatelly apply them by the install command.
 - Uninstall Envyman, removing any modifications made to the system by the original install command and also removing your configuration files if you want to.
 
-## Getting Started
+<h2 align="center">Getting Started</h2>
+
+### Example workflow
+
+Let's say you want to access the values of `URL`, `USERNAME` and `PASSWORD` from within a project that loads environment variables:
+
+Example Spring project `application.properties`:
+```properties
+spring.datasource.url=${URL}
+spring.datasource.username=${USERNAME}
+spring.datasource.password=${PASSWORD}
+```
+
+#### Createa a configuration file for this project:
+
+```properties
+envyman add myConfigFile URL=localhost USERNAME=paulo PASSWORD=granthon
+```
+- Result: This will create the `myConfigFile.sh` inside the current envyman root (default: `~/envyman/`):
+
+`~/envyman/myConfigFile.sh`:
+```properties
+URL=localhost
+USERNAME=paulo
+PASSWORD=granthon
+```
+
+#### Load the variables:
+```properties
+envyman start myConfigFile
+```
+- Result: Now the variables `URL`, `USERNAME` and `PASSWORD` are accessible to your project and will be populated at runtime with the values inside `myconfigfile`
+
+#### "I'm working on another project and the environment variables I need are different"
+```properties
+envyman start myOtherConfig
+```
+
+<h2 align="center">Installation</h2>
 
 ### Prerequisites
 
 - An Unix system such as Linux or macOS
 - Bash (version 4 or above)
 
-### Installation
-
-#### Option A: TL;DR
+### Option A: TL;DR
 
 1. Run this on any terminal of your choice to imediatelly clone and install Envyman:
 
-    ```bash
+    ```console
     git clone https://github.com/paulo-granthon/envyman.git
     chmod +x envyman/envyman
     envyman/envyman install
     ```
 
-#### Option B: To install Envyman, you can follow these steps:
+### Option B: To install Envyman, you can follow these steps:
 
 1. Clone the Envyman repository:
-
-    ```bash
+    ```console
     git clone https://github.com/paulo-granthon/envyman.git
     ```
 
 2. Move into the Envyman directory:
-
-    ```bash
+    ```console
     cd envyman
     ```
 
 3. Make the script executable:
-
-    ```bash
+    ```console
     chmod +x envyman
     ```
 
 4. Install Envyman:
-
-    ```bash
+    ```console
     ./envyman install
     ```
 
 5. Verify the installation by running the following command:
-
-    ```bash
+    ```console
     envyman
     ```
 
-### Usage
+<h2 align="center">Usage</h2>
 
 Envyman supports the following commands:
 
 - `add`: Add environment variable configuration
-    ```bash
+    ```console
     envyman add [config_file] [VAR1=VALUE1 VAR2=VALUE2 ...]
     ```
 
 - `start`: Start using the environment variable configuration
-    ```bash
-    envyman start [path]
+    ```console
+    envyman start [config_file]
     ```
+    - Note: If you created your file in a subdirectory inside the root, you'll need to specify it with the start command
 
 - `stop`: Stop using the environment variable configuration
-    ```bash
+    ```console
     envyman stop
     ```
 
 - `root`: Set the root path for configuration files
-    ```bash
+    ```console
     envyman root [path]
     ```
 
 - `ls`: List all configuration files in the root path
-    ```bash
+    ```console
     envyman ls
     ```
 
 - `groot`: Echo the current root path
-    ```bash
+    ```console
     envyman groot
     ```
 
 - `check`: Check configuration and print loaded file
-    ```bash
+    ```console
     envyman check
     ```
 
 - `install`: Install Envyman
-    ```bash
+    ```console
     envyman install
     ```
 
 - `uninstall`: Uninstall Envyman
-    ```bash
+    ```console
     envyman uninstall
     ```
+
+<h2 align="center">Story Time</h2>
+
+Envyman was born out of a personal need to address a specific challenge I encountered while collaborating on a team project using Spring Boot JPA. As the sole user of NeoVim (and Arch Linux by the way), I lacked a convenient IDE solution for managing local environment variables like Eclipse offered. I didn't want to abruptly switch to Eclipse or resort to hardcoding the database URL, username, and password in either the project's application.properties file (to avoid dealing with adding it to .gitignore since the file follows an specific template, or the risk of inadvertently exposing sensitive data on GitHub) or my machine's .bashrc file, which would require cleanup afterward. In response, I conceived the idea of creating an *environment variable manager*, **Envyman**, to effortlessly tackle this issue. It provides a straightforward command to create sets of environment variables that can be easily loaded, allowing me to work on different projects with distinct variable configurations. When no longer needed, these configurations can be easily removed. Envyman offers a seamless solution to my problem, empowering me to streamline my workflow efficiently and securely.
 
 ## License
 
