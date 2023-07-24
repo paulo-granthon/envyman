@@ -26,7 +26,7 @@ spring.datasource.username=${USERNAME}
 spring.datasource.password=${PASSWORD}
 ```
 
-#### Createa a configuration file for this project:
+#### Create a configuration file for this project:
 
 ```properties
 envyman add myConfigFile URL=localhost USERNAME=paulo PASSWORD=granthon
