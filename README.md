@@ -1,6 +1,6 @@
 # Envyman
 
-Envyman is a Bash script that helps you manage environment variable configurations easily. It allows you to add, start, stop, and list configuration files, configure where you want to store your configurations and track active configurations.
+Envyman is a Bash script that helps you manage environment variable configurations easily. It allows you to add, load, unload, and list configuration files, configure where you want to store your configurations and track active configurations.
 
 <h2 align="center">Features</h2>
 
