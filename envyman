@@ -76,12 +76,12 @@ start_configuration() {
 
     if [ -f "${full_path}" ]; then
 
-        local temp_env_file="/tmp/envyman_vars.sh"
+        local temp_env_file="/tmp/envyman"
 
         echo "#!/bin/bash" > "$temp_env_file"
-        echo "source \"$full_path\"" >> "$temp_env_file"
+        echo ". \"$full_path\"" >> "$temp_env_file"
 
-        source "$full_path"
+        . "$temp_env_file"
 
         echo "$full_path" > "$LAST_LOADED_CONFIG_FILE"
         echo "$@" >> "$LAST_LOADED_CONFIG_FILE"
@@ -94,14 +94,27 @@ start_configuration() {
 
 # Function to stop using the environment variable configuration
 stop_configuration() {
+    # Get the path of the currently sourced configuration file
+    local current_config_file=$(grep -oP '(?<=. ").*(?=")' /tmp/envyman)
 
-    if [[ -z "${URL_DB}${USERNAME_DB}${PASSWORD_DB}" ]]; then
-        echo "No configuration loaded"
+    # Check if the configuration file exists
+    if [[ -f "$current_config_file" ]]; then
+        # Read the configuration file line by line
+        while read -r line; do
+            # Check if the line is an export statement and unset the variable
+            if [[ "$line" =~ ^export\ [a-zA-Z_][a-zA-Z_0-9]*=\" ]]; then
+                var_name=$(echo "$line" | cut -d= -f1 | cut -d' ' -f2)
+                unset "$var_name"
+            fi
+        done < "$current_config_file"
+
+        echo "Configuration stopped and variables unset for $current_config_file"
     else
-        local temp_env_file="/tmp/envyman_vars.sh"
-        echo "# no active connection" > "$temp_env_file"
-        echo "Configuration stopped"
+        echo "No active configuration file found"
     fi
+
+    local temp_env_file="/tmp/envyman"
+    echo "# no active connection" > "$temp_env_file"
 
     rm -f "$LAST_LOADED_CONFIG_FILE"
 }
@@ -200,9 +213,14 @@ install_envyman() {
     # Make the Envyman script executable
     chmod +x "$HOME/.local/bin/envyman"
 
-    # Init envyman_vars.sh and add to .bashrc
-    touch "/tmp/envyman_vars.sh"
-    echo "source \"/tmp/envyman_vars.sh\"" >> "$HOME/.bashrc"
+    # Init /tmp/envyman
+    touch "/tmp/envyman"
+
+    # add source envyman and alias to bashrc
+    echo "exec &>/dev/null" >> "$HOME/.bashrc"
+    echo ". \"/tmp/envyman\"" >> "$HOME/.bashrc"
+    echo "exec &>/dev/tty" >> "$HOME/.bashrc"
+    echo "alias EM=\"\. /tmp/envyman\"" >> "$HOME/.bashrc" # add alias to /tmp/envyman for easier sourcing
 
     echo "Envyman installed successfully!"
 }
@@ -220,7 +238,7 @@ uninstall_envyman() {
     rm "$HOME/.local/bin/envyman"
 
     # Remove envyman from .bashrc
-    sed -i '/^source.*"\/tmp\/envyman_vars\.sh"$/d' "$HOME/.bashrc"
+    sed -i '/^exec &>\/dev\/null$/d;/^\. "\/tmp\/envyman"$/d;/^exec &>\/dev\/tty$/d;/^alias EM="\. \/tmp\/envyman"$/d' "$HOME/.bashrc"
 
     # Prompt to remove configurations
     read -p "Remove configurations (y/n): " remove_configs
@@ -269,6 +287,7 @@ case "$1" in
         echo "              Usage: envyman add [config_file] [VAR1=VALUE1 VAR2=VALUE2 ...]"
         echo "  start     : Start using the environment variable configuration"
         echo "              Usage: envyman start [path]"
+        echo "              Note: to commit the values to the current terminal session run \"EM\""
         echo "  stop      : Stop using the environment variable configuration"
         echo "              Usage: envyman stop"
         echo "  root      : Set the root path for configuration files"
